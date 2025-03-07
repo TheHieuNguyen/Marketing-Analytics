@@ -1,6 +1,7 @@
 # Marketing-Analytics
 This repository stores the code for Marketing Analysis Case Study
 
+
 # Install packages
 install.packages("fmsb")
 install.packages("candisc")
@@ -122,20 +123,6 @@ legend("topright", legend = rownames(radar_data)[-c(1,2)], col = c("red", "blue"
 
 #############################################TARGETING################################################################33
 
-# Multiple Regression Model 
-
-  # Creating stimulating variable "PurchaseInt"
-  set.seed(123)
-  df$PurchaseInt <- sample(1:7, nrow(df), replace = TRUE)
-  
-  # Run the regression
-  reg_model <- lm(PurchaseInt ~ ConstCom + TimelyInf + TaskMgm + DeviceSt + Wellness + Athlete + Style + Age + Income, data = df)
-  summary(reg_model)
-  
-  # Diagnostic Plots
-  par(mfrow = c(2, 2))
-  plot(reg_model,main = "Figure 6: Multiple Regression")
-
 # GE Matrix
   
   # Create a GE Matrix data frame using the derived scores
@@ -181,6 +168,58 @@ legend("topright", legend = rownames(radar_data)[-c(1,2)], col = c("red", "blue"
     labs(title = "Figure 8: Perceptual Map – Connectivity vs. Style",
          x = "Constant Communication (Connectivity)",
          y = "Style (Design Aesthetic)")
+  
+  
+  # SWOT Analysis
+  
+  # Create a data frame for colored quadrant backgrounds
+  swot_rect <- data.frame(
+    quadrant = c("Strengths", "Weaknesses", "Opportunities", "Threats"),
+    xmin = c(0, -3, -3, 0),
+    xmax = c(3, 0, 0, 3),
+    ymin = c(0, 0, -3, -3),
+    ymax = c(3, 3, 0, 0)
+  )
+  
+  # Create a data frame for SWOT analysis content
+  swot_data <- data.frame(
+    quadrant = c("Strengths", "Weaknesses", "Opportunities", "Threats"),
+    x = c(2, -2, -2, 2),
+    y = c(2, 2, -2, -2),
+    label = c("Advanced chip technology\nStrong digital integration\nPotential partnership with Amazon",
+              "Previous smartwatch failures\nLimited wearable market experience",
+              "Growing smartwatch market\nIncreased health awareness\nTechnological advances",
+              "Intense competition from Apple and Samsung\nHigh development costs")
+  )
+  
+  # Create a data frame for quadrant labels (S, W, O, T)
+  swot_labels <- data.frame(
+    quadrant = c("Strengths", "Weaknesses", "Opportunities", "Threats"),
+    x = c(2.5, -2.5, -2.5, 2.5),
+    y = c(2.5, 2.5, -2.5, -2.5),
+    lab = c("S", "W", "O", "T")
+  )
+  
+  # Plot the SWOT analysis with colored quadrants
+  ggplot() +
+    # Add colored rectangles for each quadrant
+    geom_rect(data = swot_rect, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = quadrant), alpha = 0.3) +
+    scale_fill_manual(values = c("Strengths" = "lightgreen", "Weaknesses" = "salmon", "Opportunities" = "lightblue", "Threats" = "lightpink")) +
+    # Add SWOT content text
+    geom_text(data = swot_data, aes(x = x, y = y, label = label), size = 4, hjust = 0.5, vjust = 0.5) +
+    # Add large quadrant labels (S, W, O, T)
+    geom_text(data = swot_labels, aes(x = x, y = y, label = lab), size = 10, fontface = "bold", color = "black") +
+    # Add dashed lines to separate quadrants
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey") +
+    xlim(-3, 3) +
+    ylim(-3, 3) +
+    labs(title = "Figure 9: SWOT Analysis",
+         subtitle = "S (Strengths), W (Weaknesses), O (Opportunities), T (Threats)") +
+    theme_minimal()
+  
+  
+  
   
   
   
