@@ -1,0 +1,190 @@
+# Marketing-Analytics
+This repository stores the code for Marketing Analysis Case Study
+
+# Install packages
+install.packages("fmsb")
+install.packages("candisc")
+
+# Load required libraries
+library(tidyverse)
+library(cluster)
+library(factoextra)
+library(readxl)
+library(fmsb)
+library(candisc)
+library(ggplot2)
+
+# Import the data
+df <- read_excel(file.choose())
+
+# Focus on product attributes
+attributes <- c("ConstCom", "TimelyInf", "TaskMgm", "DeviceSt", "Wellness", "Athlete", "Style")
+df_attributes <- df %>% select(all_of(attributes))
+
+# Visualize distributions for each attribute
+
+# Creating Fig 1
+
+df_attributes %>% 
+  pivot_longer(cols = everything(), names_to = "Attribute", values_to = "Score") %>%
+  ggplot(aes(x = Score)) +
+  geom_histogram(binwidth = 1, fill = "gray", color = "black") +
+  facet_wrap(~ Attribute, scales = "free") +
+  theme_minimal() +
+  labs(title = "Figure 1: Distribution of Smartwatch Product Attribute Ratings")
+
+######################################## SEGMENTING ############################################################3####
+
+# Creating Fig 2
+
+set.seed(123)
+wss <- sapply(1:10, function(k) {
+  kmeans(df_attributes, centers = k, nstart = 25)$tot.withinss
+})
+plot(1:10, wss, type = "b", pch = 19, frame = FALSE, 
+     xlab = "Number of clusters (k)",
+     ylab = "Total within-cluster sum of squares",
+     main = "Figure 2: Elbow Method - Optimal Cluster")
+
+# Creating Fig 3
+
+optimal_k <- 3
+set.seed(123)
+km_model <- kmeans(df_attributes, centers = optimal_k, nstart = 25)
+df$Segment <- as.factor(km_model$cluster)
+
+fviz_cluster(km_model, data = df_attributes,
+             ellipse.type = "norm",
+             palette = "jco",
+             ggtheme = theme_minimal(),
+             main = "Figure 3: Cluster Plot of Smartwatch Product Attributes")
+
+# Segment Profiling
+
+segment_profile <- df %>%
+  group_by(Segment) %>%
+  summarise(across(all_of(attributes), mean),
+            AmznP = mean(AmznP),
+            Female = mean(Female),
+            Degree = mean(Degree),
+            Income = mean(Income),
+            Age = mean(Age))
+print(segment_profile)
+
+# Multivariate Analysis of Variance test and visualize it
+
+  # Add the new names for segments
+df$Segment <- factor(df$Segment, 
+                     levels = c("1", "2", "3"),
+                     labels = c("Connected & Informed", "Active & Stylish", "Balanced & Practical"))
+  # Verify the new levels
+levels(df$Segment)
+
+  # Combine the product attributes into a multivariate response matrix using the variables in df
+manova_response <- with(df, cbind(ConstCom, TimelyInf, TaskMgm, DeviceSt, Wellness, Athlete, Style))
+
+  # Run MANOVA with Segment as the independent variable
+manova_model <- manova(manova_response ~ Segment, data = df)
+summary(manova_model, test = "Wilks")
+
+  # Run canonical discriminant analysis on the MANOVA model
+manova_candisc <- candisc(manova_model)
+
+  # Plot the canonical discriminant analysis results
+plot(manova_candisc, main = "Figure 4:Canonical Discriminant Analysis")
+
+
+# Visualization of Radar Charts
+
+  # Extract segment means for product attributes
+segment_means <- df %>%
+  group_by(Segment) %>%
+  summarise(across(all_of(attributes), mean)) %>%
+  ungroup()
+
+  # Set up radar chart data with max and min rows
+radar_data <- rbind(
+  rep(7, length(attributes)),  # maximum score for each attribute (7-point scale)
+  rep(1, length(attributes)),  # minimum score for each attribute (7-point scale)
+  as.data.frame(segment_means[,-1])
+)
+rownames(radar_data) <- c("Max", "Min", "Connected & Informed", "Active & Stylish", "Balanced & Practical")
+
+# Create radar chart
+radarchart(radar_data, axistype = 1,
+           pcol = c("red", "blue", "green"),
+           pfcol = c(rgb(1,0,0,0.3), rgb(0,0,1,0.3), rgb(0,1,0,0.3)),
+           plwd = 2, 
+           cglcol = "grey", cglty = 1, axislabcol = "grey", caxislabels = seq(1,7,1),
+           title = "Figure 5: Radar Chart: Product Attribute Profiles by Segment")
+legend("topright", legend = rownames(radar_data)[-c(1,2)], col = c("red", "blue", "green"), lty = 1, lwd = 2)
+
+
+#############################################TARGETING################################################################33
+
+# Multiple Regression Model 
+
+  # Creating stimulating variable "PurchaseInt"
+  set.seed(123)
+  df$PurchaseInt <- sample(1:7, nrow(df), replace = TRUE)
+  
+  # Run the regression
+  reg_model <- lm(PurchaseInt ~ ConstCom + TimelyInf + TaskMgm + DeviceSt + Wellness + Athlete + Style + Age + Income, data = df)
+  summary(reg_model)
+  
+  # Diagnostic Plots
+  par(mfrow = c(2, 2))
+  plot(reg_model,main = "Figure 6: Multiple Regression")
+
+# GE Matrix
+  
+  # Create a GE Matrix data frame using the derived scores
+  df_ge <- data.frame(
+    Segment = c("Connected & Informed", "Active & Stylish", "Balanced & Practical"),
+    Attractiveness = c(6.3, 7.0, 4.6),       # Scaled from average attribute ratings (1-10 scale)
+    CompetitiveStrength = c(8, 7, 5),  
+    MarketSize = c(2.5, 2.0, 1.5)              # Relative market size (estimated from industry forecasts)
+  )
+  
+  library(ggplot2)
+  ggplot(df_ge, aes(x = CompetitiveStrength, y = Attractiveness, label = Segment)) +
+    geom_point(aes(size = MarketSize, fill = Segment), 
+               color = "black", shape = 21, alpha = 0.7) +
+    scale_size_continuous(range = c(5, 15)) +
+    scale_fill_brewer(palette = "Set2") +
+    scale_x_continuous(limits = c(0, 10), name = "Intel's Competitive Strength") +
+    scale_y_continuous(limits = c(0, 10), name = "Market Attractiveness") +
+    geom_text(nudge_y = 0.3, nudge_x = 0.3, size = 4) +
+    theme_minimal() +
+    labs(
+      title = "Figure 7: GE Matrix",
+      subtitle = "Bubble size indicates relative market size",
+      size = "Market Size"
+    )
+  
+  ############################################# POSITIONING ################################################################33
+
+  # Calculate cluster centroids for visualization
+  centroids <- df %>%
+    group_by(Segment) %>%
+    summarise(Mean_ConstCom = mean(ConstCom),
+              Mean_Style = mean(Style))
+  
+  # Perceptual map using ggplot2
+  ggplot(df, aes(x = ConstCom, y = Style, color = Segment)) +
+    geom_point(alpha = 0.5) +
+    geom_point(data = centroids, aes(x = Mean_ConstCom, y = Mean_Style, color = Segment),
+               size = 5, shape = 17) +
+    geom_text(data = centroids, aes(x = Mean_ConstCom, y = Mean_Style, label = Segment),
+              vjust = -1, size = 5) +
+    theme_minimal() +
+    labs(title = "Figure 8: Perceptual Map – Connectivity vs. Style",
+         x = "Constant Communication (Connectivity)",
+         y = "Style (Design Aesthetic)")
+  
+  
+  
+  
+  
+  
+  
